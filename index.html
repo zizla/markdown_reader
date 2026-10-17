@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MD to PDF - 클라이언트 사이드 마크다운 PDF 변환기</title>
+  <meta name="description" content="외부 서버 전송 없이 사용자 컴퓨터 메모리에서 100% 안전하게 Markdown을 읽고 폰트와 서식을 유지하여 PDF로 저장하는 웹앱" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Highlight.js Code Highlighting Theme -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
+
+  <!-- External Client Libraries (Run in browser only, Zero Server Upload) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+  <!-- Hidden File Input for Markdown Upload -->
+  <input type="file" id="file-input" accept=".md,.markdown,.txt" style="display: none;" />
+
+  <!-- Drag & Drop Fullscreen Overlay -->
+  <div id="drop-overlay" class="drop-overlay">
+    <div class="drop-icon">📥</div>
+    <div class="drop-text">여기에 Markdown (*.md) 파일을 놓으세요</div>
+    <div class="drop-subtext">외부 서버 전송 없이 브라우저 메모리에서 즉시 열립니다</div>
+  </div>
+
+  <!-- Application Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">MD</div>
+      <div class="brand-text">
+        <h1>MD to PDF <span class="brand-badge">Local Pro</span></h1>
+        <div class="brand-subtitle">마크다운 리더 &amp; PDF 변환기</div>
+      </div>
+    </div>
+
+    <!-- Security Indicator (Zero Server Transmission) -->
+    <div class="security-badge" title="업로드된 모든 데이터는 사용자 브라우저 내부 메모리에서만 처리되며 외부에 전달되지 않습니다.">
+      <span class="security-dot"></span>
+      <span>100% 로컬 보안 격리 (No Server)</span>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <button id="btn-upload" class="btn btn-secondary" title="Markdown 파일 열기 (Ctrl+O)">
+        <span>📂</span> <span>파일 열기</span>
+      </button>
+
+      <button id="btn-load-sample" class="btn btn-outline" title="샘플 문서 보기">
+        <span>📄</span> <span>샘플 문서</span>
+      </button>
+
+      <button id="btn-export-pdf" class="btn btn-primary" title="PDF 파일 즉시 다운로드 (Ctrl+S)">
+        <span>⚡</span> <span>PDF 다운로드</span>
+      </button>
+
+      <button id="btn-print-pdf" class="btn btn-secondary" title="고화질 벡터 인쇄 / PDF 저장 (Ctrl+P)">
+        <span>🖨️</span> <span>인쇄 / PDF</span>
+      </button>
+
+      <button id="btn-toggle-ui-theme" class="btn btn-outline btn-icon-only" title="화면 테마 전환">
+        ☀️
+      </button>
+
+      <button id="btn-help" class="btn btn-outline btn-icon-only" title="사용 가이드 및 단축키">
+        ❓
+      </button>
+    </div>
+  </header>
+
+  <!-- Application Body -->
+  <div class="app-body">
+    
+    <!-- Left Settings Sidebar -->
+    <aside id="settings-sidebar" class="settings-sidebar">
+      <div class="sidebar-header">
+        <h2><span>⚙️</span> 문서 스타일 설정</h2>
+        <button id="btn-new-doc" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+          + 새 문서
+        </button>
+      </div>
+
+      <div class="sidebar-scroll">
+        
+        <!-- 1. Typography Settings -->
+        <div class="settings-group">
+          <div class="group-title"><span>🔤</span> 서체 (폰트 설정)</div>
+          
+          <div class="control-item">
+            <label class="control-label" for="setting-font-family">글꼴 선택</label>
+            <select id="setting-font-family" class="form-control">
+              <option value="'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif" selected>Pretendard (현대적 고딕)</option>
+              <option value="'Noto Sans KR', sans-serif">Noto Sans KR (본고딕)</option>
+              <option value="'Noto Serif KR', serif">Noto Serif KR (본명조)</option>
+              <option value="'Nanum Myeongjo', serif">나눔명조 (Nanum Myeongjo)</option>
+              <option value="system-ui, -apple-system, sans-serif">시스템 기본 고딕 (System UI)</option>
+              <option value="Georgia, Cambria, 'Times New Roman', serif">클래식 세리프 (Serif)</option>
+            </select>
+          </div>
+
+          <div class="control-item">
+            <div class="control-label">
+              <span>글자 크기</span>
+              <span id="label-font-size" class="control-val-tag">15px</span>
+            </div>
+            <div class="slider-container">
+              <input type="range" id="setting-font-size" min="12" max="24" value="15" step="1" />
+            </div>
+          </div>
+
+          <div class="control-item">
+            <div class="control-label">
+              <span>줄 간격 (행간)</span>
+              <span id="label-line-height" class="control-val-tag">1.7</span>
+            </div>
+            <div class="slider-container">
+              <input type="range" id="setting-line-height" min="1.3" max="2.3" value="1.7" step="0.1" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Paper & Page Layout -->
+        <div class="settings-group">
+          <div class="group-title"><span>📄</span> 용지 및 레이아웃</div>
+          
+          <div class="control-item">
+            <label class="control-label" for="setting-paper-format">용지 규격</label>
+            <select id="setting-paper-format" class="form-control">
+              <option value="a4" selected>A4 (210 x 297 mm)</option>
+              <option value="letter">Letter (8.5 x 11 in)</option>
+              <option value="a3">A3 (297 x 420 mm)</option>
+            </select>
+          </div>
+
+          <div class="control-item">
+            <label class="control-label">용지 여백 (Margin)</label>
+            <div class="segmented-control">
+              <button class="segment-btn" data-margin="12mm">좁게 (12mm)</button>
+              <button class="segment-btn active" data-margin="20mm">보통 (20mm)</button>
+              <button class="segment-btn" data-margin="28mm">넓게 (28mm)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Document Color Themes -->
+        <div class="settings-group">
+          <div class="group-title"><span>🎨</span> 문서 테마</div>
+          <div class="segmented-control" style="grid-template-columns: repeat(2, 1fr);">
+            <button class="segment-btn active" data-theme="theme-clean-white">클린 화이트</button>
+            <button class="segment-btn" data-theme="theme-warm-book">서적 세피아</button>
+            <button class="segment-btn" data-theme="theme-modern-slate">모던 슬레이트</button>
+            <button class="segment-btn" data-theme="theme-academic-serif">학술 세리프</button>
+          </div>
+        </div>
+
+        <!-- 4. Header & Footer Options -->
+        <div class="settings-group">
+          <div class="group-title"><span>📑</span> 머리말 / 꼬리말</div>
+
+          <div class="control-item">
+            <label class="control-label" for="setting-custom-title">문서 제목 지정 (선택)</label>
+            <input type="text" id="setting-custom-title" class="form-control" placeholder="미입력시 파일명 사용" />
+          </div>
+
+          <label class="toggle-item">
+            <span>상단 머리말 표시 (제목 &amp; 날짜)</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="toggle-show-header" checked />
+              <div class="toggle-slider"></div>
+            </div>
+          </label>
+
+          <label class="toggle-item">
+            <span>하단 꼬리말 표시 (출처 정보)</span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="toggle-show-footer" checked />
+              <div class="toggle-slider"></div>
+            </div>
+          </label>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Workspace Area (Sub-toolbar + Canvas) -->
+    <main class="workspace-area">
+      
+      <!-- Sub-Toolbar -->
+      <div class="sub-toolbar">
+        <div class="toolbar-left">
+          <button id="btn-toggle-sidebar" class="btn btn-outline btn-icon-only" title="설정 패널 접기/펼치기">
+            ☰
+          </button>
+          
+          <div class="file-info-tag">
+            <span class="file-icon">📝</span>
+            <span id="active-file-name">sample_guide.md</span>
+          </div>
+
+          <!-- View Mode Tabs -->
+          <div class="view-mode-tabs">
+            <button class="view-tab-btn active" data-mode="preview">미리보기</button>
+            <button class="view-tab-btn" data-mode="split">분할 (편집+미리보기)</button>
+            <button class="view-tab-btn" data-mode="editor">편집기</button>
+          </div>
+        </div>
+
+        <div class="toolbar-right">
+          <!-- Zoom Controls -->
+          <div class="zoom-control">
+            <button id="btn-zoom-out" class="btn-zoom" title="축소">-</button>
+            <span id="zoom-level-text" class="zoom-level-text">100%</span>
+            <button id="btn-zoom-in" class="btn-zoom" title="확대">+</button>
+            <button id="btn-zoom-reset" class="btn-zoom" title="100% 맞춤">↺</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Views Wrapper -->
+      <div class="views-wrapper">
+        
+        <!-- Markdown Editor Pane (Visible in Split or Editor Mode) -->
+        <div id="editor-pane" class="editor-pane">
+          <div class="editor-header">
+            <span>Markdown 원본 편집</span>
+            <span>실시간 프리뷰 동기화</span>
+          </div>
+          <textarea id="editor-textarea" class="editor-textarea" placeholder="여기에 마크다운 내용을 직접 입력하거나 붙여넣으세요..."></textarea>
+        </div>
+
+        <!-- Document Preview Canvas -->
+        <div id="preview-pane" class="preview-pane">
+          
+          <div id="document-sheet-wrapper" class="document-sheet-wrapper">
+            <!-- Simulated Paper Sheet for Print & PDF -->
+            <article id="document-sheet" class="document-sheet theme-clean-white format-a4">
+              
+              <!-- Header Banner (Optional) -->
+              <div id="doc-header-banner" class="doc-header-banner active">
+                <span id="header-doc-title">마크다운 문서</span>
+                <span id="header-doc-date">2026. 10. 17.</span>
+              </div>
+
+              <!-- Empty State Placeholder -->
+              <div id="empty-placeholder" class="empty-placeholder" style="display: none;">
+                <div class="empty-icon">📂</div>
+                <div class="empty-title">문서가 비어 있습니다</div>
+                <div class="empty-desc">
+                  상단의 [파일 열기] 버튼을 누르거나, 컴퓨터의 *.md 파일을 브라우저 창으로 드래그 앤 드롭하세요.
+                </div>
+                <div class="empty-actions">
+                  <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                    파일 선택하기
+                  </button>
+                  <button class="btn btn-outline" onclick="document.getElementById('btn-load-sample').click()">
+                    샘플 문서 불러오기
+                  </button>
+                </div>
+              </div>
+
+              <!-- Rendered Markdown Output -->
+              <div id="markdown-body" class="markdown-body"></div>
+
+              <!-- Footer Banner (Optional) -->
+              <div id="doc-footer-banner" class="doc-footer-banner active">
+                <span id="footer-doc-info">document.md • MD to PDF Converter</span>
+                <span>Page 1</span>
+              </div>
+
+            </article>
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Bottom Status Bar -->
+  <footer class="app-statusbar">
+    <div class="status-stats">
+      <div class="status-stat-item">
+        <span>글자 수:</span>
+        <strong id="stat-char-count">0자</strong>
+      </div>
+      <div class="status-stat-item">
+        <span>단어 수:</span>
+        <strong id="stat-word-count">0단어</strong>
+      </div>
+      <div class="status-stat-item">
+        <span>예상 읽기 시간:</span>
+        <strong id="stat-reading-time">약 1분</strong>
+      </div>
+    </div>
+    <div>
+      <span>100% Client-Side Local Sandbox • Zero Server Upload</span>
+    </div>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Help & Guide Modal -->
+  <div id="help-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>💡 MD to PDF 사용 안내</h3>
+        <button id="btn-close-help-modal" class="btn btn-outline btn-icon-only">✕</button>
+      </div>
+      <div class="modal-content">
+        <p><strong>🔒 개인정보 및 보안 원칙</strong></p>
+        <p>이 웹앱은 사용자가 업로드한 모든 파일을 <strong>브라우저의 로컬 메모리</strong>에서만 처리합니다. 외부 서버나 클라우드로 문서가 절대 전송되지 않으므로 기밀 문서도 안심하고 변환할 수 있습니다.</p>
+        <br />
+        <p><strong>🎯 폰트 및 스타일 유지 저장 팁</strong></p>
+        <ul>
+          <li><strong>폰트 &amp; 크기 설정:</strong> 좌측 패널에서 Pretendard, 본고딕, 나눔명조 등 원하는 글꼴과 글자 크기, 줄 간격을 지정하면 화면과 PDF에 동일하게 적용됩니다.</li>
+          <li><strong>⚡ PDF 다운로드:</strong> 클릭 즉시 브라우저 다운로드 폴더로 *.pdf 파일이 생성됩니다.</li>
+          <li><strong>🖨️ 인쇄 / PDF:</strong> 브라우저 인쇄 대화상자에서 "PDF로 저장"을 선택하면 텍스트 검색 및 선택이 가능한 최고화질 벡터 PDF가 생성됩니다.</li>
+        </ul>
+        <br />
+        <p><strong>⌨️ 단축키 안내</strong></p>
+        <ul>
+          <li><kbd>Ctrl</kbd> + <kbd>O</kbd> : 마크다운 파일 열기</li>
+          <li><kbd>Ctrl</kbd> + <kbd>S</kbd> : 빠른 PDF 다운로드</li>
+          <li><kbd>Ctrl</kbd> + <kbd>P</kbd> : 인쇄 및 벡터 PDF 저장</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-modal-dismiss" class="btn btn-primary">확인했습니다</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
